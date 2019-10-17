@@ -12,8 +12,31 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import more_itertools as mitl
 
+def draw_2D_matching_complex(M_G, fill=[]):
+    #TODO: implement
+    pos = nx.spring_layout(M_G, dim=2)
+#    pos = nx.planar_layout(M_G, dim=2)
 
-edge_list = [(1,2), (2,3), (3,4), (1,4), (1,3), (2,4)]
+
+    nx.drawing.nx_pylab.draw(M_G, pos)
+    nx.drawing.nx_pylab.draw_networkx_labels(M_G, pos)
+
+    ax = plt.gca()
+    for V in fill:
+        x = [pos[v][0] for v in V]
+        y = [pos[v][1] for v in V]
+        ax.fill(x,y, "blue")
+
+    nx.drawing.nx_pylab.draw(M_G, pos)
+    nx.drawing.nx_pylab.draw_networkx_labels(M_G, pos)
+
+    plt.show()
+    
+# Define graph as edge list  ================================================================
+#edge_list = [(1,2), (2,3), (3,4), (1,4), (1,3), (2,4)] # K_4
+edge_list = [(1,2), (2,3), (3,4), (4,5), (5,6), (6,1)] # C_6
+# ==============================================================
+
 edge_labels = {e:i+1 for i,e in enumerate(edge_list)}
 print(edge_labels)
 
@@ -50,19 +73,35 @@ for match in matchings:
 print("maximal matchings: ", maximal_matchings)
 
 max_dim = max([len(m) for m in maximal_matchings])
+M_G = nx.Graph()
 
-if max_dim > 3:
-    print("Cannot draw matching complex. Dimension is > 3")
+if max_dim > 4:
+    print("Cannot draw matching complex. Simplicial complex dimension is > 3")
 elif max_dim == 1 or max_dim == 0:
     print("Matching complex is trivial.")
 elif max_dim == 2:
-    draw_2D_matching_complex(maximal_matchings)
+    M_G.add_edges_from(maximal_matchings)
+    draw_2D_matching_complex(M_G)
+
+elif max_dim == 3:
+    # NOTE: Larger weight = tries to force edge to be shorter
+    tri_weight = 100 # how strong connection is between nodes in triangle
+    other_weight = 50 # how strong other node connections are (for spring model)
+    fill = []
+    for match in maximal_matchings:
+        if len(match) == 3:
+            M_G.add_edge(match[0], match[1], weight=tri_weight)
+            M_G.add_edge(match[0], match[2], weight=tri_weight)
+            M_G.add_edge(match[2], match[1], weight=tri_weight)
+            fill.append(match) 
+        else:
+            M_G.add_edge(match[0], match[1], weight=other_weight)
+    print(fill)
+    draw_2D_matching_complex(M_G,fill)
+
 else: # dim == 3
     print("thats hard")
 
-
-def draw_2D_matching_complex(max_matchings):
-    #TODO: implement
 
 
 print("done!")
