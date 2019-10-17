@@ -16,8 +16,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 def draw_2D_matching_complex(M_G, fill=[]):
-    pos = nx.spring_layout(M_G, dim=2)
-#    pos = nx.planar_layout(M_G, dim=2)
+    pos = nx.spring_layout(M_G, dim=2, iterations=100)
 
     nx.drawing.nx_pylab.draw(M_G, pos)
     nx.drawing.nx_pylab.draw_networkx_labels(M_G, pos)
@@ -32,11 +31,7 @@ def draw_2D_matching_complex(M_G, fill=[]):
     plt.show()
 
 def draw_3D_matching_complex(M_G,fill=[]):
-    pos = nx.spring_layout(M_G, dim=3)
-
-    xs = []
-    ys = []
-    zs = []
+    pos = nx.spring_layout(M_G, dim=3, iterations=100)
 
     fig = plt.figure()
     ax = fig.add_subplot('111', projection='3d')
@@ -49,17 +44,18 @@ def draw_3D_matching_complex(M_G,fill=[]):
         
         # linewidth sets width of lines in polyhedron. Alpha sets transparency of polyhedron faces
         poly = Poly3DCollection((verts,), linewidth=1, alpha=0.2)
-        ax.add_collection3d(poly)
 
+        if len(verts) == 3: #triangle
+            poly.set_color('g')
+        elif len(verts) == 4: # tetrahedron
+            poly.set_color('b')
+        ax.add_collection3d(poly)
 
     for key in pos:
         point = pos[key]
-        xs.append(point[0])
-        ys.append(point[1])
-        zs.append(point[2])
-        ax.text(point[0], point[1], point[2], key, horizontalalignment='center', verticalalignment='center')
+        ax.scatter(point[0], point[1], point[2], s=120, c='r', alpha=0.4, edgecolor='k')
+        ax.text(point[0], point[1], point[2], key, fontsize=15) #horizontalalignment='center', verticalalignment='center')
 
-    ax.scatter(xs, ys, zs,s=120,c='r')
 
     for e in M_G.edges():
         ax.plot(xs=[pos[e[0]][0], pos[e[1]][0]], ys=[pos[e[0]][1], pos[e[1]][1]], zs=[pos[e[0]][2], pos[e[1]][2]], c='k') 
@@ -106,14 +102,14 @@ for match in matchings:
 
     maximal_matchings = maximal_matchings - to_remove
         
-#print("maximal matchings: ", maximal_matchings)
 
+print("Matching Complex is :", maximal_matchings)
 max_dim = max([len(m) for m in maximal_matchings])
 M_G = nx.Graph()
 
 # NOTE: Larger weight = tries to force edge to be shorter
+tetra_weight = 2 # how strong connection is between nodes of tetrahedron
 tri_weight = 1 # how strong connection is between nodes in triangle
-tetra_weight = 1
 other_weight = 0.5 # how strong other node connections are (for spring model)
 fill = []
 for match in maximal_matchings:
