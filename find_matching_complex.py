@@ -11,12 +11,13 @@ import numpy as np
 import networkx as nx
 import matplotlib.pyplot as plt
 import more_itertools as mitl
+import itertools as itl
+from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 def draw_2D_matching_complex(M_G, fill=[]):
-    #TODO: implement
     pos = nx.spring_layout(M_G, dim=2)
 #    pos = nx.planar_layout(M_G, dim=2)
-
 
     nx.drawing.nx_pylab.draw(M_G, pos)
     nx.drawing.nx_pylab.draw_networkx_labels(M_G, pos)
@@ -27,18 +28,53 @@ def draw_2D_matching_complex(M_G, fill=[]):
         y = [pos[v][1] for v in V]
         ax.fill(x,y, "blue")
 
-    nx.drawing.nx_pylab.draw(M_G, pos)
-    nx.drawing.nx_pylab.draw_networkx_labels(M_G, pos)
 
     plt.show()
+
+def draw_3D_matching_complex(M_G,fill=[]):
+    pos = nx.spring_layout(M_G, dim=3)
+
+    xs = []
+    ys = []
+    zs = []
+
+    fig = plt.figure()
+    ax = fig.add_subplot('111', projection='3d')
+
+    for V in fill:
+        vx = [pos[v][0] for v in V]
+        vy = [pos[v][1] for v in V]
+        vz = [pos[v][2] for v in V]
+        verts = list(zip(vx, vy, vz))
+        
+        # linewidth sets width of lines in polyhedron. Alpha sets transparency of polyhedron faces
+        poly = Poly3DCollection((verts,), linewidth=1, alpha=0.2)
+        ax.add_collection3d(poly)
+
+
+    for key in pos:
+        point = pos[key]
+        xs.append(point[0])
+        ys.append(point[1])
+        zs.append(point[2])
+        ax.text(point[0], point[1], point[2], key, horizontalalignment='center', verticalalignment='center')
+
+    ax.scatter(xs, ys, zs,s=120,c='r')
+
+    for e in M_G.edges():
+        ax.plot(xs=[pos[e[0]][0], pos[e[1]][0]], ys=[pos[e[0]][1], pos[e[1]][1]], zs=[pos[e[0]][2], pos[e[1]][2]], c='k') 
+
+    plt.show()
+
     
 # Define graph as edge list  ================================================================
 #edge_list = [(1,2), (2,3), (3,4), (1,4), (1,3), (2,4)] # K_4
-edge_list = [(1,2), (2,3), (3,4), (4,5), (5,6), (6,1)] # C_6
+#edge_list = [(1,2), (2,3), (3,4), (4,5), (5,6), (6,1)] # C_6
+edge_list = [(1,2), (2,3), (3,4), (4,5), (5,6), (6,7), (7,1)] # C_7
+#edge_list = [(1,2), (2,3), (3,4), (4,5), (5,6), (6,7), (7,8), (8,1)] # C_8
 # ==============================================================
 
 edge_labels = {e:i+1 for i,e in enumerate(edge_list)}
-print(edge_labels)
 
 
 G = nx.Graph()
@@ -57,7 +93,7 @@ for edge_set in mitl.powerset(edge_list):
     if nx.algorithms.matching.is_matching(G, edge_set):
         matchings.add(tuple([edge_labels[e] for e in edge_set]))
 
-print("matchings: ", matchings)
+#print("matchings: ", matchings)
 
 maximal_matchings = set() 
 for match in matchings:
@@ -70,38 +106,40 @@ for match in matchings:
 
     maximal_matchings = maximal_matchings - to_remove
         
-print("maximal matchings: ", maximal_matchings)
+#print("maximal matchings: ", maximal_matchings)
 
 max_dim = max([len(m) for m in maximal_matchings])
 M_G = nx.Graph()
+
+# NOTE: Larger weight = tries to force edge to be shorter
+tri_weight = 1 # how strong connection is between nodes in triangle
+tetra_weight = 1
+other_weight = 0.5 # how strong other node connections are (for spring model)
+fill = []
+for match in maximal_matchings:
+    if len(match) == 3:
+        for v1, v2 in itl.combinations(match, 2):
+            M_G.add_edge(v1, v2, weight=tri_weight)
+        fill.append(match) 
+
+    elif len(match) == 4:
+        for v1, v2 in itl.combinations(match, 2):
+            M_G.add_edge(v1, v2, weight=tetra_weight)
+        fill.append(match) 
+
+    else:
+        M_G.add_edge(match[0], match[1], weight=other_weight)
 
 if max_dim > 4:
     print("Cannot draw matching complex. Simplicial complex dimension is > 3")
 elif max_dim == 1 or max_dim == 0:
     print("Matching complex is trivial.")
-elif max_dim == 2:
-    M_G.add_edges_from(maximal_matchings)
-    draw_2D_matching_complex(M_G)
-
-elif max_dim == 3:
-    # NOTE: Larger weight = tries to force edge to be shorter
-    tri_weight = 100 # how strong connection is between nodes in triangle
-    other_weight = 50 # how strong other node connections are (for spring model)
-    fill = []
-    for match in maximal_matchings:
-        if len(match) == 3:
-            M_G.add_edge(match[0], match[1], weight=tri_weight)
-            M_G.add_edge(match[0], match[2], weight=tri_weight)
-            M_G.add_edge(match[2], match[1], weight=tri_weight)
-            fill.append(match) 
-        else:
-            M_G.add_edge(match[0], match[1], weight=other_weight)
-    print(fill)
-    draw_2D_matching_complex(M_G,fill)
+#elif max_dim == 2 or max_dim == 3:
+#    draw_2D_matching_complex(M_G,fill)
 
 else: # dim == 3
-    print("thats hard")
 
+    draw_3D_matching_complex(M_G,fill)
 
 
 print("done!")
