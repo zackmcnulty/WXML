@@ -99,20 +99,25 @@ def draw_3D_matching_complex(M_G,fill=[]):
     fig = plt.figure()
     ax = fig.add_subplot('111', projection='3d')
 
+    tetra_verts = []
+    tri_verts = []
     for V in fill:
-        vx = [pos[v][0] for v in V]
-        vy = [pos[v][1] for v in V]
-        vz = [pos[v][2] for v in V]
-        verts = list(zip(vx, vy, vz))
+        verts = [tuple(pos[v]) for v in V]
         
-        # linewidth sets width of lines in polyhedron. Alpha sets transparency of polyhedron faces
-        poly = Poly3DCollection((verts,), linewidth=1, alpha=0.2)
-
         if len(verts) == 3: #triangle
-            poly.set_color('g')
+            tri_verts.append(verts)
         elif len(verts) == 4: # tetrahedron
-            poly.set_color('b')
-        ax.add_collection3d(poly)
+            for v1, v2, v3 in itl.combinations(verts, 3):
+                tetra_verts.append((v1,v2,v3))
+
+
+    poly = Poly3DCollection(tri_verts, linewidth=1, alpha=0.2)
+    poly.set_facecolor('g')
+    ax.add_collection3d(poly)
+    poly = Poly3DCollection(tetra_verts, linewidth=1, alpha=0.2)
+    poly.set_facecolor('b')
+    ax.add_collection3d(poly)
+
 
     for key in pos:
         point = pos[key]
@@ -170,11 +175,22 @@ def make_matching_complex(maximal_matchings, tetra_weight=1, tri_weight=1, other
 
 if __name__ == "__main__":
 
+    import argparse
+
+    parser = argparse.ArgumentParser(description="finding and drawing the matching complex for the given graph")
+    #parser.add_help()
+    parser.add_argument('--draw_graph', action='store_true', default=False, help="plot the given graph")
+    parser.add_argument('--draw_2D', action='store_true', default=False, help="Draw matching complex in 2D rather than 3D")
+    parser.add_argument('-w', '--weights', nargs=3, default=(1,1,1), help="Strength of edges for tetrahedron, triangle, and normal edges in matching complex.")
+
+    args = parser.parse_args()
+
     # Define graph as edge list  ================================================================
     #edge_list = [(1,2), (2,3), (3,4), (1,4), (1,3), (2,4)] # K_4
     #edge_list = [(1,2), (2,3), (3,4), (4,5), (5,6), (6,1)] # C_6
     #edge_list = [(1,2), (2,3), (3,4), (4,5), (5,6), (6,7), (7,1)] # C_7
     edge_list = [(1,2), (2,3), (3,4), (4,5), (5,6), (6,7), (7,8), (8,1)] # C_8
+    #edge_list=[(1,2), (3,4), (5,6), (7,8)] # 4 disjoint edges
     # ==============================================================
     edge_labels = {e:i+1 for i,e in enumerate(edge_list)}
 
@@ -182,26 +198,29 @@ if __name__ == "__main__":
     G.add_edges_from(edge_list)
 
     # draw the graph given by edge list
-    draw_graph(G, edge_labels=edge_labels)
+    if args.draw_graph:
+        draw_graph(G, edge_labels=edge_labels)
+
     maximal_matchings = find_matching_complex(G)
 
     print("Matching Complex is :", maximal_matchings)
-    tetra_weight = 2 # how strong connection is between nodes of tetrahedron
-    tri_weight = 1 # how strong connection is between nodes in triangle
-    other_weight = 0 # how strong other node connections are (for spring model)
+    #tetra_weight = 10 # how strong connection is between nodes of tetrahedron
+    #tri_weight = 1 # how strong connection is between nodes in triangle
+    #other_weight = 0 # how strong other node connections are (for spring model)
 
     max_dim = max([len(m) for m in maximal_matchings])
     
-    M_G, fill = make_matching_complex(maximal_matchings, tetra_weight=tetra_weight, tri_weight=tri_weight, other_weight=other_weight)
+    M_G, fill = make_matching_complex(maximal_matchings, tetra_weight=args.weights[0], tri_weight=args.weights[1], other_weight=args.weights[2])
 
     if max_dim > 4:
         print("Cannot draw matching complex. Simplicial complex dimension is > 3")
     elif max_dim == 1 or max_dim == 0:
         print("Matching complex is trivial.")
 
-    else:
+    elif args.draw_2D:
+        draw_2D_matching_complex(M_G,fill)
 
-    #    draw_2D_matching_complex(M_G,fill)
+    else:
         draw_3D_matching_complex(M_G,fill)
 
     print("done!")
