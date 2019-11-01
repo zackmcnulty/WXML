@@ -2,8 +2,6 @@
 
 Finds matching complex of a given graph.
 
-VPython is used to graph this complex
-
 '''
 
 
@@ -28,6 +26,8 @@ def draw_graph(G, edge_labels=None):
     plt.title('Graph G')
     plt.show()
 
+
+# TODO: implement more efficient algorithm for finding matching.
 def find_matching_complex(G):
     """
     Finds the matching complex of a given graph G
@@ -79,12 +79,12 @@ def draw_2D_matching_complex(M_G, fill=[]):
     for V in fill:
         x = [pos[v][0] for v in V]
         y = [pos[v][1] for v in V]
-        ax.fill(x,y, "blue")
+        ax.fill(x,y, "blue", alpha=0.2)
 
 
     plt.show()
 
-def draw_3D_matching_complex(M_G,fill=[]):
+def draw_3D_matching_complex(M_G,fill=[], iterations=100, add_centroids=False):
     """
     Draws the given matching complex in 3 dimensions, filling in any faces (e.g. triangles/tetrahedron). Uses the spring-force
     algorithm to determine the location of nodes.
@@ -94,7 +94,19 @@ def draw_3D_matching_complex(M_G,fill=[]):
         fill : tuples of vertices specifying a face to be colored. For example, (1,2,3) specifies coloring in the face made by
                vertices 1,2,3 (and the corresponding edges between them).
     """
-    pos = nx.spring_layout(M_G, dim=3, iterations=100, weight="weight")
+
+
+    # NOTE: add centroids to stabilize tetrahedron?
+    if add_centroids:
+        for V in fill:
+            centroid = 1 + max(M_G.nodes)
+            if len(V) == 4: # tetrahedron
+                for v in V:
+                    M_G.add_edge(v, centroid, weight=1)
+    ###################################################
+
+    #pos = nx.spectral_layout(M_G, dim=3, weight="weight")
+    pos = nx.spring_layout(M_G, dim=3, iterations=iterations, weight="weight")
 
     fig = plt.figure()
     ax = fig.add_subplot('111', projection='3d')
@@ -180,6 +192,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="finding and drawing the matching complex for the given graph")
     #parser.add_help()
     parser.add_argument('--draw_graph', action='store_true', default=False, help="plot the given graph")
+    parser.add_argument('--iterations', type=int, default=100, help="Number of iterations to run spring-force algorithm for")
     parser.add_argument('--draw_2D', action='store_true', default=False, help="Draw matching complex in 2D rather than 3D")
     parser.add_argument('-w', '--weights', nargs=3, default=(1,1,1), help="Strength of edges for tetrahedron, triangle, and normal edges in matching complex.")
 
@@ -189,9 +202,23 @@ if __name__ == "__main__":
     #edge_list = [(1,2), (2,3), (3,4), (1,4), (1,3), (2,4)] # K_4
     #edge_list = [(1,2), (2,3), (3,4), (4,5), (5,6), (6,1)] # C_6
     #edge_list = [(1,2), (2,3), (3,4), (4,5), (5,6), (6,7), (7,1)] # C_7
-    edge_list = [(1,2), (2,3), (3,4), (4,5), (5,6), (6,7), (7,8), (8,1)] # C_8
+    #edge_list = [(1,2), (2,3), (3,4), (4,5), (5,6), (6,7), (7,8), (8,1)] # C_8
     #edge_list=[(1,2), (3,4), (5,6), (7,8)] # 4 disjoint edges
-    # ==============================================================
+    #edge_list=[(1,2), (3,4), (5,6), (7,8)] # 4 disjoint edges
+    
+    #'''
+    # K_k,n
+    k=4
+    n=3
+    edge_list =[]
+    for i in range(k):
+        for j in range(k, k+n):
+            edge_list.append((i,j))
+    
+    print(edge_list)
+    #'''
+
+    # ============================================================================================
     edge_labels = {e:i+1 for i,e in enumerate(edge_list)}
 
     G = nx.Graph()
@@ -204,9 +231,6 @@ if __name__ == "__main__":
     maximal_matchings = find_matching_complex(G)
 
     print("Matching Complex is :", maximal_matchings)
-    #tetra_weight = 10 # how strong connection is between nodes of tetrahedron
-    #tri_weight = 1 # how strong connection is between nodes in triangle
-    #other_weight = 0 # how strong other node connections are (for spring model)
 
     max_dim = max([len(m) for m in maximal_matchings])
     
@@ -221,6 +245,6 @@ if __name__ == "__main__":
         draw_2D_matching_complex(M_G,fill)
 
     else:
-        draw_3D_matching_complex(M_G,fill)
+        draw_3D_matching_complex(M_G,fill, iterations=args.iterations)
 
     print("done!")
