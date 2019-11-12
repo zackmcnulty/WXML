@@ -88,7 +88,7 @@ def draw_2D_matching_complex(M_G, fill=[]):
 
     plt.show()
 
-def draw_3D_matching_complex(M_G,fill=[], iterations=100, add_centroids=False):
+def draw_3D_matching_complex(M_G,fill=[], iterations=100):
     """
     Draws the given matching complex in 3 dimensions, filling in any faces (e.g. triangles/tetrahedron). Uses the spring-force
     algorithm to determine the location of nodes.
@@ -99,17 +99,6 @@ def draw_3D_matching_complex(M_G,fill=[], iterations=100, add_centroids=False):
                vertices 1,2,3 (and the corresponding edges between them).
     """
 
-
-    # NOTE: add centroids to stabilize tetrahedron?
-    if add_centroids:
-        for V in fill:
-            centroid = 1 + max(M_G.nodes)
-            if len(V) == 4: # tetrahedron
-                for v in V:
-                    M_G.add_edge(v, centroid, weight=1)
-    ###################################################
-
-    #pos = nx.spectral_layout(M_G, dim=3, weight="weight")
     pos = nx.spring_layout(M_G, dim=3, iterations=iterations, weight="weight")
 
     fig = plt.figure()
@@ -144,6 +133,7 @@ def draw_3D_matching_complex(M_G,fill=[], iterations=100, add_centroids=False):
     for e in M_G.edges():
         ax.plot(xs=[pos[e[0]][0], pos[e[1]][0]], ys=[pos[e[0]][1], pos[e[1]][1]], zs=[pos[e[0]][2], pos[e[1]][2]], c='k') 
 
+    plt.show()
     #mpld3.show()
 
     
