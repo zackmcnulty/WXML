@@ -5,6 +5,7 @@ Finds and draws the line graph of a given graph G (specified by an edge list
 import networkx as nx
 import matplotlib.pyplot as plt
 import itertools as itl
+
 # NOTE: define graph here =======================================================================
 
 n = 7

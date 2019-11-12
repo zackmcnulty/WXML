@@ -1,6 +1,9 @@
 '''
 
-Finds matching complex of a given graph.
+A variety of helpful functions for finding and plotting the matching complexes
+of given graphs. These can be imported into another python file to use,
+or at the bottom of this file you can use the main method to just
+specify the graph in this file directly and just run this python file.
 
 '''
 
@@ -12,6 +15,7 @@ import more_itertools as mitl
 import itertools as itl
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+import mpld3
 
 def draw_graph(G, edge_labels=None):
     """
@@ -140,7 +144,7 @@ def draw_3D_matching_complex(M_G,fill=[], iterations=100, add_centroids=False):
     for e in M_G.edges():
         ax.plot(xs=[pos[e[0]][0], pos[e[1]][0]], ys=[pos[e[0]][1], pos[e[1]][1]], zs=[pos[e[0]][2], pos[e[1]][2]], c='k') 
 
-    plt.show()
+    #mpld3.show()
 
     
 def make_matching_complex(maximal_matchings, tetra_weight=1, tri_weight=1, other_weight=1):
@@ -176,13 +180,14 @@ def make_matching_complex(maximal_matchings, tetra_weight=1, tri_weight=1, other
                 M_G.add_edge(v1, v2, weight=tetra_weight)
             fill.append(match) 
 
-        else:
+        elif len(match) == 2:
             M_G.add_edge(match[0], match[1], weight=other_weight)
 
     return M_G, fill
 
 
 # ====================================================================================================================================
+
 # NOTE: If you prefer, you can just run this file and specify graphs here
 
 if __name__ == "__main__":
@@ -201,12 +206,12 @@ if __name__ == "__main__":
     # Define graph as edge list  ================================================================
     #edge_list = [(1,2), (2,3), (3,4), (1,4), (1,3), (2,4)] # K_4
     #edge_list = [(1,2), (2,3), (3,4), (4,5), (5,6), (6,1)] # C_6
-    #edge_list = [(1,2), (2,3), (3,4), (4,5), (5,6), (6,7), (7,1)] # C_7
+    edge_list = [(1,2), (2,3), (3,4), (4,5), (5,6), (6,7), (7,1)] # C_7
     #edge_list = [(1,2), (2,3), (3,4), (4,5), (5,6), (6,7), (7,8), (8,1)] # C_8
     #edge_list=[(1,2), (3,4), (5,6), (7,8)] # 4 disjoint edges
     #edge_list=[(1,2), (3,4), (5,6), (7,8)] # 4 disjoint edges
     
-    #'''
+    '''
     # K_k,n
     k=4
     n=3
@@ -216,7 +221,13 @@ if __name__ == "__main__":
             edge_list.append((i,j))
     
     print(edge_list)
-    #'''
+    '''
+
+    #K_n
+    '''
+    n=6
+    edge_list=[(i,j) for i,j in itl.combinations(list(range(n)), 2)]
+    '''
 
     # ============================================================================================
     edge_labels = {e:i+1 for i,e in enumerate(edge_list)}
@@ -234,17 +245,18 @@ if __name__ == "__main__":
 
     max_dim = max([len(m) for m in maximal_matchings])
     
-    M_G, fill = make_matching_complex(maximal_matchings, tetra_weight=args.weights[0], tri_weight=args.weights[1], other_weight=args.weights[2])
 
     if max_dim > 4:
         print("Cannot draw matching complex. Simplicial complex dimension is > 3")
     elif max_dim == 1 or max_dim == 0:
         print("Matching complex is trivial.")
-
-    elif args.draw_2D:
-        draw_2D_matching_complex(M_G,fill)
-
     else:
-        draw_3D_matching_complex(M_G,fill, iterations=args.iterations)
+        M_G, fill = make_matching_complex(maximal_matchings, tetra_weight=args.weights[0], tri_weight=args.weights[1], other_weight=args.weights[2])
+
+        if args.draw_2D:
+            draw_2D_matching_complex(M_G,fill)
+
+        else:
+            draw_3D_matching_complex(M_G,fill, iterations=args.iterations)
 
     print("done!")
