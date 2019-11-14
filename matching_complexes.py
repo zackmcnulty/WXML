@@ -15,6 +15,7 @@ import more_itertools as mitl
 import itertools as itl
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+import copy
 
 def draw_graph(G, edge_labels=None):
     """
@@ -22,6 +23,7 @@ def draw_graph(G, edge_labels=None):
 
     @params
         G = graph to be drawn (a networkx Graph object)
+        edge_labels : dictionary mapping each edge to a name
     """
     pos=nx.spring_layout(G)
     nx.drawing.nx_pylab.draw(G, pos)
@@ -219,34 +221,34 @@ def graph_from_complex(edges, vertices, faces=[]):
             adj_list[v1].remove(v2)
             adj_list[v1].remove(v2)
 
-
-    print(adj_list)
-
-    #TODO: Recursive Backtracking Algorithm?
     
     # This will be the edge adjacency list for the graph G who generates this matching complex
     # namely, it will be a dictionary mapping each vertex to the set of edges adjacent to it.
     vertex_adj_list = {}
-    
+
+    # graph is a map from each vertex to the set of edges adjacent to it
     graph = helper(0, vertex_adj_list, adj_list, vertices, None)
+
 
     if graph is None:
         raise ValueError("The given complex is not the matching complex of some graph")
         
     # reconstruct the graph from the vertex_adj_list stored in graph.
-    edge_map = {}
-    for v in vertex_adj_list:
-        for e in vertex_adj_list[v]:
+    edge_map = {} # map from each edge to its two vertices
+    for v in graph:
+        for e in graph[v]:
             if e in edge_map:
                 edge_map[e].add(v)
             else:
                 edge_map[e] = set([v])
 
-    edge_list = [tuple(edge_map[e]) for e in edge_map]
+    edge_labels = {tuple(edge_map[e]):e for e in edge_map}
+    edge_list = edge_labels.keys()
     
     G = nx.Graph()
     G.add_edges_from(edge_list)
-    return G
+
+    return G, edge_labels
 
 # NOTE: is it important an edge is not considered adjacent to itself?
 def helper(index, vertex_adj_list, edge_adj_list, edges, first_vertex):
@@ -267,13 +269,12 @@ def helper(index, vertex_adj_list, edge_adj_list, edges, first_vertex):
 
     next_edge = edges[index]
 
-    found_adjacent_edge = False
     for v in vertex_adj_list:
 
         # if this edge is adjacent to all the edges already adjacent to the given vertex,
         # we can add it to the given vertex and recurse.
         if vertex_adj_list[v].issubset(edge_adj_list[next_edge]):
-            new_adj_list = vertex_adj_list.copy()
+            new_adj_list = copy.deepcopy(vertex_adj_list)
             new_adj_list[v].add(next_edge)
 
 
@@ -288,32 +289,33 @@ def helper(index, vertex_adj_list, edge_adj_list, edges, first_vertex):
             if graph is not None: return graph
 
 
-        # This tries to handle the case where a given edge is incompatible with the current graph being built
-        # Namely, if I can find edges that are adjacent to the edge I am currently trying to place, and this
-        # edge is n
-        '''
-        set_diff = edge_adj_list[next_edge] - vertex_adj_list[v]
-        if not next_edge in vertex_adj_list[v] and len(set_diff) < len(edge_adj_list[next_edge]) :
+    # This tries to handle the case where a given edge is incompatible with the current graph being built
+    # Namely, if I can find edges that are adjacent to the edge I am currently trying to place, and this
+    # edge is n. Note we have already placed edges with index less than the current edge
+    needed_edges = set(filter(lambda x:  x < edges[index], edge_adj_list[next_edge])) # filter to consider only edges that have already been placed
 
-            if first_vertex is None or len(vertex_adj_list[v].intersection(vertex_adj_list[first_vertex])) == 0:
-                found_adjacent_edge = True
+    # Since there are edges the current edge is adjacent to that have already been placed,
+    # I should have been able to find a compatible vertex to attach this edge to. Thus, the current
+    # graph does not work so recurse upwards.
+    if first_vertex is None and len(needed_edges) > 0: return None
 
 
-    if not found_adjacent_edge:
-        new_adj_list = vertex_adj_list.copy()
-        new_adj_list[len(vertex_adj_list)] = set([next_edge])
+    # Since there are edges the current edge is adjacent to that have already been placed AND that it is not already adjacent to,
+    # I should have been able to find a compatible vertex to attach this edge to. Thus, the current
+    # graph does not work so recurse upwards.
+    elif first_vertex is not None and len(needed_edges - vertex_adj_list[first_vertex]) > 0: return None
 
-        if first_vertex is None:
-            new_adj_list[len(vertex_adj_list) + 1] = set([next_edge])
 
-        return helper(index + 1, new_adj_list, edge_adj_list, edges, None)
+    # else I have not found any vertices that I could attach this edge to, but none of the currently placed edges
+    # need to be adjacent to this edge and currently aren't. So I am free to create a new vertex for one of this
+    # current edge's endpoints
+    new_adj_list = copy.deepcopy(vertex_adj_list)
+    new_adj_list[len(vertex_adj_list)] = set([next_edge])
 
-    # otherwise, I have looked through all the vertices and couldn't find a spot to place this edge.
-    # Moreover, there are already edges this edge is adjacent to in the graph, so I cannot have this
-    # edge completely disjoint from the current graph. I must have made a mistake earlier on in building 
-    # the graph. Time to recurse backwards.
-    else:
-        return None
+    if first_vertex is None:
+        new_adj_list[len(vertex_adj_list) + 1] = set([next_edge])
+
+    return helper(index + 1, new_adj_list, edge_adj_list, edges, None)
 
 
 
