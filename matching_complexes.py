@@ -33,12 +33,16 @@ def draw_graph(G, edge_labels=None):
 
 
 # TODO: implement more efficient algorithm for finding matching.
-def find_matching_complex(edge_list, edge_labels=None):
+def find_matching_complex(G, edge_labels=None):
     """
     Finds the matching complex of a given graph G
 
     @params
-        edge_list = list of edges in the graph G to find matching complex of. This should be a list of 2-tuples
+                  G = networkx graph object storing the graph to find a matching complex of. To create this from an
+                      edge list, simply do:
+                            G = networkx.Graph()
+                            G.add_edges_from(edge_list)
+                            
         edge_labels = List of names to give each of the edges in the matching.
 
     @returns
@@ -47,13 +51,13 @@ def find_matching_complex(edge_list, edge_labels=None):
     """
 
     if edge_labels is None:
-        edge_labels = {e:e for e in enumerate(edge_list)}
+        edge_labels = {e:e for e in enumerate(G.edges())}
 
 
     matchings = set([])
 
     # find all possible matchings: improve this code if necessary
-    for edge_set in mitl.powerset(edge_list):
+    for edge_set in mitl.powerset(G.edges()):
         if nx.algorithms.matching.is_matching(G, edge_set):
             matchings.add(tuple([edge_labels[e] for e in edge_set]))
 
@@ -201,7 +205,7 @@ def graph_from_complex(edges, vertices, faces=[]):
     
     # create adjacency lists for the edges of G
     # stores which edges in G have to be adjacent based on the structure of M_G
-    adj_list = {v:vertices.copy() for v in vertices}
+    adj_list = {v:set(vertices.copy()) for v in vertices}
     for v in vertices: adj_list[v].remove(v)
     
     # NOTE: Edges in G cannot be adjacent if their corresponding vertices are adjacent in M_G
@@ -219,7 +223,98 @@ def graph_from_complex(edges, vertices, faces=[]):
     print(adj_list)
 
     #TODO: Recursive Backtracking Algorithm?
-    return None
+    
+    # This will be the edge adjacency list for the graph G who generates this matching complex
+    # namely, it will be a dictionary mapping each vertex to the set of edges adjacent to it.
+    vertex_adj_list = {}
+    
+    graph = helper(0, vertex_adj_list, adj_list, vertices, None)
+
+    if graph is None:
+        raise ValueError("The given complex is not the matching complex of some graph")
+        
+    # reconstruct the graph from the vertex_adj_list stored in graph.
+    edge_map = {}
+    for v in vertex_adj_list:
+        for e in vertex_adj_list[v]:
+            if e in edge_map:
+                edge_map[e].add(v)
+            else:
+                edge_map[e] = set([v])
+
+    edge_list = [tuple(edge_map[e]) for e in edge_map]
+    
+    G = nx.Graph()
+    G.add_edges_from(edge_list)
+    return G
+
+# NOTE: is it important an edge is not considered adjacent to itself?
+def helper(index, vertex_adj_list, edge_adj_list, edges, first_vertex):
+    '''
+        helper method for graph_from_complex above
+
+        @params
+            index : current index in edge list we are considering. e.g. which edge are we trying to place
+            vertex_adj_list : map from vertices (in G) to the edges (in G) they are adjacent to (currently. we are building this up)
+            edge_adj_list : map from edges (in G) to edges (in G) they are adjacent to. This info was gathered from the matching complex
+            first_vertex : For each edge, we have to assign both its endpoints to vertices in G. If one endpoint has already been assigned,
+                           this stores the endpoint it was assigned to. This is None if no endpoints have been assigned yet.
+    '''
+
+    # We found a suitable graph!
+    if index >= len(edges):
+        return vertex_adj_list
+
+    next_edge = edges[index]
+
+    found_adjacent_edge = False
+    for v in vertex_adj_list:
+
+        # if this edge is adjacent to all the edges already adjacent to the given vertex,
+        # we can add it to the given vertex and recurse.
+        if vertex_adj_list[v].issubset(edge_adj_list[next_edge]):
+            new_adj_list = vertex_adj_list.copy()
+            new_adj_list[v].add(next_edge)
+
+
+            if not first_vertex is None:
+                # just placed both vertices for current edge, so we can move on to the next edge
+                graph = helper(index + 1, new_adj_list, edge_adj_list, edges, None)
+            else:
+                # only placed first vertex for current edge. Now we must place second vertex.
+                graph = helper(index, new_adj_list, edge_adj_list, edges, v)
+
+            # lower branch found a solution!
+            if graph is not None: return graph
+
+
+        # This tries to handle the case where a given edge is incompatible with the current graph being built
+        # Namely, if I can find edges that are adjacent to the edge I am currently trying to place, and this
+        # edge is n
+        '''
+        set_diff = edge_adj_list[next_edge] - vertex_adj_list[v]
+        if not next_edge in vertex_adj_list[v] and len(set_diff) < len(edge_adj_list[next_edge]) :
+
+            if first_vertex is None or len(vertex_adj_list[v].intersection(vertex_adj_list[first_vertex])) == 0:
+                found_adjacent_edge = True
+
+
+    if not found_adjacent_edge:
+        new_adj_list = vertex_adj_list.copy()
+        new_adj_list[len(vertex_adj_list)] = set([next_edge])
+
+        if first_vertex is None:
+            new_adj_list[len(vertex_adj_list) + 1] = set([next_edge])
+
+        return helper(index + 1, new_adj_list, edge_adj_list, edges, None)
+
+    # otherwise, I have looked through all the vertices and couldn't find a spot to place this edge.
+    # Moreover, there are already edges this edge is adjacent to in the graph, so I cannot have this
+    # edge completely disjoint from the current graph. I must have made a mistake earlier on in building 
+    # the graph. Time to recurse backwards.
+    else:
+        return None
+
 
 
 # ====================================================================================================================================
@@ -276,15 +371,16 @@ if __name__ == "__main__":
         '''
 
         # ============================================================================================
-        edge_labels = {e:i+1 for i,e in enumerate(edge_list)}
 
         G = nx.Graph()
         G.add_edges_from(edge_list)
 
+        edge_labels = {e:i+1 for i,e in enumerate(G.edges())}
+
         # draw the graph given by edge list
         draw_graph(G, edge_labels=edge_labels)
 
-        maximal_matchings = find_matching_complex(edge_list, edge_labels)
+        maximal_matchings = find_matching_complex(G, edge_labels)
 
         print("Matching Complex is :", maximal_matchings)
 
@@ -314,10 +410,10 @@ if __name__ == "__main__":
 
         # NOTE: edit the following variables to specify your matching complex ===============================
         # labels to give vertices in M_G
-        vertices = list(range(1,7))
+        vertices = list(range(1,6))
 
         # edges in matching complex (NOT higher dimensional faces; simply specify the one-skeleton here)
-        edges = [(1,2), (2,3), (3,4), (4,5), (5,6), (6,1)]
+        edges = [(1,2), (2,3), (3,4), (4,5), (5,1)]
 
         # Specify higher dimensional faces here as a list of tuples. For example, the 4-tuple
         # (1,2,3,4) would specify a filled in tetrahedron between vertices 1,2,3,4 in the matching complex
