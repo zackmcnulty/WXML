@@ -289,19 +289,23 @@ def helper(index, vertex_adj_list, edge_adj_list, edges, first_vertex, simple_gr
         # if this edge is adjacent to all the edges already adjacent to the given vertex,
         # we can add it to the given vertex and recurse.
         if vertex_adj_list[v].issubset(edge_adj_list[next_edge]):
-            new_adj_list = copy.deepcopy(vertex_adj_list)
-            new_adj_list[v].add(next_edge)
+
+            # TODO: verify this simple graph check works properly.
+            if first_vertex is None or not simple_graph or len(vertex_adj_list[v].intersection(vertex_adj_list[first_vertex])) == 0:
+
+                new_adj_list = copy.deepcopy(vertex_adj_list)
+                new_adj_list[v].add(next_edge)
 
 
-            if not first_vertex is None:
-                # just placed both vertices for current edge, so we can move on to the next edge
-                graph = helper(index + 1, new_adj_list, edge_adj_list, edges, first_vertex=None, simple_graph=simple_graph)
-            else:
-                # only placed first vertex for current edge. Now we must place second vertex.
-                graph = helper(index, new_adj_list, edge_adj_list, edges, first_vertex=v, simple_graph=simple_graph)
+                if not first_vertex is None:
+                    # just placed both vertices for current edge, so we can move on to the next edge
+                    graph = helper(index + 1, new_adj_list, edge_adj_list, edges, first_vertex=None, simple_graph=simple_graph)
+                else:
+                    # only placed first vertex for current edge. Now we must place second vertex.
+                    graph = helper(index, new_adj_list, edge_adj_list, edges, first_vertex=v, simple_graph=simple_graph)
 
-            # lower branch found a solution!
-            if graph is not None: return graph
+                # lower branch found a solution!
+                if graph is not None: return graph
 
 
     # This tries to handle the case where a given edge is incompatible with the current graph being built
