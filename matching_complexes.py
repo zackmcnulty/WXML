@@ -213,13 +213,27 @@ def graph_from_complex(edges, vertices, faces=[], simple_graph=False):
     # NOTE: Edges in G cannot be adjacent if their corresponding vertices are adjacent in M_G
     # or share a higher dimensional face.
     for e in edges:
-        adj_list[e[0]].remove(e[1])
-        adj_list[e[1]].remove(e[0])
+        try:
+            adj_list[e[0]].remove(e[1])
+        except:
+            pass
+
+        try:
+            adj_list[e[1]].remove(e[0])
+        except:
+            pass
 
     for f in faces:
         for v1, v2 in itl.combinations(f,2):
-            adj_list[v1].remove(v2)
-            adj_list[v1].remove(v2)
+            try:
+                adj_list[v1].remove(v2)
+            except:
+                pass
+
+            try:
+                adj_list[v1].remove(v2)
+            except:
+                pass
 
     
     # This will be the edge adjacency list for the graph G who generates this matching complex
