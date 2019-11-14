@@ -13,10 +13,12 @@ from matching_complexes import *
 
 # NOTE: edit the following variables to specify your matching complex ===============================
 # labels to give vertices in M_G (and thus labels for the corresponding edges in G)
-vertices = list(range(1,6))
+vertices = [1,2,3,4,5]
+
 
 # edges in matching complex (NOT higher dimensional faces; simply specify the one-skeleton here)
-edges = [(1,2), (2,3), (3,4), (4,5), (5,1)]
+edges = [(1,3), (3,5), (5,2), (2,4), (4,1)]
+
 
 # Specify higher dimensional faces here as a list of tuples. For example, the 4-tuple
 # (1,2,3,4) would specify a filled in tetrahedron between vertices 1,2,3,4 in the matching complex
@@ -24,6 +26,7 @@ faces = []
 
 #=====================================================================================================
 
-G, edge_labels = graph_from_complex(edges, vertices, faces)
+G, edge_labels = graph_from_complex(edges, vertices, faces, simple_graph=False)
+print('graph: ', G.edges())
 draw_graph(G, edge_labels=edge_labels)
 

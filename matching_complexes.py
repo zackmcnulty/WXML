@@ -189,7 +189,7 @@ def make_matching_complex(maximal_matchings, tetra_weight=1, tri_weight=1, other
     return M_G, fill
 
 
-def graph_from_complex(edges, vertices, faces=[]):
+def graph_from_complex(edges, vertices, faces=[], simple_graph=False):
     """
     Given a matching complex, find a graph that generates it (this graph may not be unique).
 
@@ -227,7 +227,7 @@ def graph_from_complex(edges, vertices, faces=[]):
     vertex_adj_list = {}
 
     # graph is a map from each vertex to the set of edges adjacent to it
-    graph = helper(0, vertex_adj_list, adj_list, vertices, None)
+    graph = helper(0, vertex_adj_list, adj_list, vertices, None, simple_graph)
 
 
     if graph is None:
@@ -251,7 +251,7 @@ def graph_from_complex(edges, vertices, faces=[]):
     return G, edge_labels
 
 # NOTE: is it important an edge is not considered adjacent to itself?
-def helper(index, vertex_adj_list, edge_adj_list, edges, first_vertex):
+def helper(index, vertex_adj_list, edge_adj_list, edges, first_vertex, simple_graph):
     '''
         helper method for graph_from_complex above
 
@@ -261,6 +261,7 @@ def helper(index, vertex_adj_list, edge_adj_list, edges, first_vertex):
             edge_adj_list : map from edges (in G) to edges (in G) they are adjacent to. This info was gathered from the matching complex
             first_vertex : For each edge, we have to assign both its endpoints to vertices in G. If one endpoint has already been assigned,
                            this stores the endpoint it was assigned to. This is None if no endpoints have been assigned yet.
+            simple_graph : whether to allow multiple edges in the graph that generates G. Self-loops are ignored already as they dont affect matching complex.
     '''
 
     # We found a suitable graph!
@@ -280,10 +281,10 @@ def helper(index, vertex_adj_list, edge_adj_list, edges, first_vertex):
 
             if not first_vertex is None:
                 # just placed both vertices for current edge, so we can move on to the next edge
-                graph = helper(index + 1, new_adj_list, edge_adj_list, edges, None)
+                graph = helper(index + 1, new_adj_list, edge_adj_list, edges, first_vertex=None, simple_graph=simple_graph)
             else:
                 # only placed first vertex for current edge. Now we must place second vertex.
-                graph = helper(index, new_adj_list, edge_adj_list, edges, v)
+                graph = helper(index, new_adj_list, edge_adj_list, edges, first_vertex=v, simple_graph=simple_graph)
 
             # lower branch found a solution!
             if graph is not None: return graph
@@ -292,7 +293,7 @@ def helper(index, vertex_adj_list, edge_adj_list, edges, first_vertex):
     # This tries to handle the case where a given edge is incompatible with the current graph being built
     # Namely, if I can find edges that are adjacent to the edge I am currently trying to place, and this
     # edge is n. Note we have already placed edges with index less than the current edge
-    needed_edges = set(filter(lambda x:  x < edges[index], edge_adj_list[next_edge])) # filter to consider only edges that have already been placed
+    needed_edges = set(filter(lambda x:  edges.index(x) < index, edge_adj_list[next_edge])) # filter to consider only edges that have already been placed
 
     # Since there are edges the current edge is adjacent to that have already been placed,
     # I should have been able to find a compatible vertex to attach this edge to. Thus, the current
@@ -315,7 +316,7 @@ def helper(index, vertex_adj_list, edge_adj_list, edges, first_vertex):
     if first_vertex is None:
         new_adj_list[len(vertex_adj_list) + 1] = set([next_edge])
 
-    return helper(index + 1, new_adj_list, edge_adj_list, edges, None)
+    return helper(index + 1, new_adj_list, edge_adj_list, edges, first_vertex=None, simple_graph=simple_graph)
 
 
 
