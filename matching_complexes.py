@@ -15,7 +15,6 @@ import more_itertools as mitl
 import itertools as itl
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
-import mpld3
 
 def draw_graph(G, edge_labels=None):
     """
@@ -26,23 +25,31 @@ def draw_graph(G, edge_labels=None):
     """
     pos=nx.spring_layout(G)
     nx.drawing.nx_pylab.draw(G, pos)
-    nx.drawing.nx_pylab.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels)
+    if not edge_labels is None:
+        nx.drawing.nx_pylab.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels)
+
     plt.title('Graph G')
     plt.show()
 
 
 # TODO: implement more efficient algorithm for finding matching.
-def find_matching_complex(G):
+def find_matching_complex(edge_list, edge_labels=None):
     """
     Finds the matching complex of a given graph G
 
     @params
-        G = graph to find matching complex of (a networkx Graph object)
+        edge_list = list of edges in the graph G to find matching complex of. This should be a list of 2-tuples
+        edge_labels = List of names to give each of the edges in the matching.
 
     @returns
         maximal_matchings = A list of tuples for each face in the matching complex. e.g. a 1-tuple specifies a vertex, a 2-tuple an edge,
                             a 3-tuple a triangle, a 4-tuple a tetrahedron, etc
     """
+
+    if edge_labels is None:
+        edge_labels = {e:e for e in enumerate(edge_list)}
+
+
     matchings = set([])
 
     # find all possible matchings: improve this code if necessary
@@ -176,6 +183,45 @@ def make_matching_complex(maximal_matchings, tetra_weight=1, tri_weight=1, other
     return M_G, fill
 
 
+def graph_from_complex(edges, vertices, faces=[]):
+    """
+    Given a matching complex, find a graph that generates it (this graph may not be unique).
+
+    @params
+         edges : edge list for the given matching complex (e.g. edges of the one skeleton of M_G)
+         vertices: vertex labels for M_G. This could just be a list of numbers [1,2,..., n]
+         faces : higher dimensional faces of matching complex. Specified as a list of n-tuples of vertices.
+                 for example, the 3-tuple (1,2,3) would specify a face between vertices 1,2,3 of M_G (e.g. a filled
+                 in triangle). Similarly, a 4-tuple (1,2,3,4) would form a filled in tetrahedron between vertices 1,2,3,4
+
+
+    @returns
+        G : a networkx Graph object for a graph that generates this matching complex (if possible)
+    """
+    
+    # create adjacency lists for the edges of G
+    # stores which edges in G have to be adjacent based on the structure of M_G
+    adj_list = {v:vertices.copy() for v in vertices}
+    for v in vertices: adj_list[v].remove(v)
+    
+    # NOTE: Edges in G cannot be adjacent if their corresponding vertices are adjacent in M_G
+    # or share a higher dimensional face.
+    for e in edges:
+        adj_list[e[0]].remove(e[1])
+        adj_list[e[1]].remove(e[0])
+
+    for f in faces:
+        for v1, v2 in itl.combinations(f,2):
+            adj_list[v1].remove(v2)
+            adj_list[v1].remove(v2)
+
+
+    print(adj_list)
+
+    #TODO: Recursive Backtracking Algorithm?
+    return None
+
+
 # ====================================================================================================================================
 
 # NOTE: If you prefer, you can just run this file and specify graphs here
@@ -186,67 +232,99 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="finding and drawing the matching complex for the given graph")
     #parser.add_help()
-    parser.add_argument('--draw_graph', action='store_true', default=False, help="plot the given graph")
+    parser.add_argument('-g', '--find_graph', action='store_true', default=False, help="find the a graph that generates given matching complex")
+    parser.add_argument('-m', '--find_matching', action='store_true', default=False, help="find the matching complex of a given graph")
     parser.add_argument('--iterations', type=int, default=100, help="Number of iterations to run spring-force algorithm for")
     parser.add_argument('--draw_2D', action='store_true', default=False, help="Draw matching complex in 2D rather than 3D")
     parser.add_argument('-w', '--weights', nargs=3, default=(1,1,1), help="Strength of edges for tetrahedron, triangle, and normal edges in matching complex.")
 
     args = parser.parse_args()
 
-    # Define graph as edge list  ================================================================
-    #edge_list = [(1,2), (2,3), (3,4), (1,4), (1,3), (2,4)] # K_4
-    #edge_list = [(1,2), (2,3), (3,4), (4,5), (5,6), (6,1)] # C_6
-    edge_list = [(1,2), (2,3), (3,4), (4,5), (5,6), (6,7), (7,1)] # C_7
-    #edge_list = [(1,2), (2,3), (3,4), (4,5), (5,6), (6,7), (7,8), (8,1)] # C_8
-    #edge_list=[(1,2), (3,4), (5,6), (7,8)] # 4 disjoint edges
-    #edge_list=[(1,2), (3,4), (5,6), (7,8)] # 4 disjoint edges
-    
-    '''
-    # K_k,n
-    k=4
-    n=3
-    edge_list =[]
-    for i in range(k):
-        for j in range(k, k+n):
-            edge_list.append((i,j))
-    
-    print(edge_list)
-    '''
 
-    #K_n
-    '''
-    n=6
-    edge_list=[(i,j) for i,j in itl.combinations(list(range(n)), 2)]
-    '''
+    if args.find_matching:
+        # NOTE: Define graph as edge list  ================================================================
 
-    # ============================================================================================
-    edge_labels = {e:i+1 for i,e in enumerate(edge_list)}
+        '''
+        This is where you can specify the graph G you want to find the matching complex of.
+        Specify it as an edge list. Some examples can be found below.
+        '''
 
-    G = nx.Graph()
-    G.add_edges_from(edge_list)
 
-    # draw the graph given by edge list
-    if args.draw_graph:
+        #edge_list = [(1,2), (2,3), (3,4), (1,4), (1,3), (2,4)] # K_4
+        #edge_list = [(1,2), (2,3), (3,4), (4,5), (5,6), (6,1)] # C_6
+        edge_list = [(1,2), (2,3), (3,4), (4,5), (5,6), (6,7), (7,1)] # C_7
+        #edge_list = [(1,2), (2,3), (3,4), (4,5), (5,6), (6,7), (7,8), (8,1)] # C_8
+        #edge_list=[(1,2), (3,4), (5,6), (7,8)] # 4 disjoint edges
+        #edge_list=[(1,2), (3,4), (5,6), (7,8)] # 4 disjoint edges
+        
+        '''
+        # K_k,n
+        k=4
+        n=3
+        edge_list =[]
+        for i in range(k):
+            for j in range(k, k+n):
+                edge_list.append((i,j))
+        
+        print(edge_list)
+        '''
+
+        #K_n
+        '''
+        n=6
+        edge_list=[(i,j) for i,j in itl.combinations(list(range(n)), 2)]
+        '''
+
+        # ============================================================================================
+        edge_labels = {e:i+1 for i,e in enumerate(edge_list)}
+
+        G = nx.Graph()
+        G.add_edges_from(edge_list)
+
+        # draw the graph given by edge list
         draw_graph(G, edge_labels=edge_labels)
 
-    maximal_matchings = find_matching_complex(G)
+        maximal_matchings = find_matching_complex(edge_list, edge_labels)
 
-    print("Matching Complex is :", maximal_matchings)
+        print("Matching Complex is :", maximal_matchings)
 
-    max_dim = max([len(m) for m in maximal_matchings])
-    
+        max_dim = max([len(m) for m in maximal_matchings])
+        
 
-    if max_dim > 4:
-        print("Cannot draw matching complex. Simplicial complex dimension is > 3")
-    elif max_dim == 1 or max_dim == 0:
-        print("Matching complex is trivial.")
-    else:
-        M_G, fill = make_matching_complex(maximal_matchings, tetra_weight=args.weights[0], tri_weight=args.weights[1], other_weight=args.weights[2])
-
-        if args.draw_2D:
-            draw_2D_matching_complex(M_G,fill)
-
+        if max_dim > 4:
+            print("Cannot draw matching complex. Simplicial complex dimension is > 3")
+        elif max_dim == 1 or max_dim == 0:
+            print("Matching complex is trivial.")
         else:
-            draw_3D_matching_complex(M_G,fill, iterations=args.iterations)
+            M_G, fill = make_matching_complex(maximal_matchings, tetra_weight=args.weights[0], tri_weight=args.weights[1], other_weight=args.weights[2])
 
-    print("done!")
+            if args.draw_2D:
+                draw_2D_matching_complex(M_G,fill)
+
+            else:
+                draw_3D_matching_complex(M_G,fill, iterations=args.iterations)
+
+        print("done!")
+
+
+# =====================================================================================================
+
+    # NOTE: Find the graph that generates a given matching complex.
+    if args.find_graph:
+
+        # NOTE: edit the following variables to specify your matching complex ===============================
+        # labels to give vertices in M_G
+        vertices = list(range(1,7))
+
+        # edges in matching complex (NOT higher dimensional faces; simply specify the one-skeleton here)
+        edges = [(1,2), (2,3), (3,4), (4,5), (5,6), (6,1)]
+
+        # Specify higher dimensional faces here as a list of tuples. For example, the 4-tuple
+        # (1,2,3,4) would specify a filled in tetrahedron between vertices 1,2,3,4 in the matching complex
+        faces = []
+
+        #=====================================================================================================
+
+        G = graph_from_complex(edges, vertices, faces)
+        draw_graph(G, edge_labels=vertices)
+
