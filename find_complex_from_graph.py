@@ -26,6 +26,11 @@ other_weight = 1
 # so more iterations may improve performance.
 iterations = 100
 
+# whether to make a video rotating simplicial complex. Helps visualize 3D complex.
+make_video = True
+vid_path='./presentation/c7_video.mp4'
+
+
 
 '''
 This is where you can specify the graph G you want to find the matching complex of.
@@ -37,7 +42,6 @@ Specify it as an edge list. Some examples can be found below.
 #edge_list = [(1,2), (2,3), (3,4), (4,5), (5,6), (6,1)] # C_6
 edge_list = [(1,2), (2,3), (3,4), (4,5), (5,6), (6,7), (7,1)] # C_7
 #edge_list = [(1,2), (2,3), (3,4), (4,5), (5,6), (6,7), (7,8), (8,1)] # C_8
-#edge_list=[(1,2), (3,4), (5,6), (7,8)] # 4 disjoint edges
 #edge_list=[(1,2), (3,4), (5,6), (7,8)] # 4 disjoint edges
 
 #K_k,n
@@ -89,6 +93,6 @@ else:
         draw_2D_matching_complex(M_G,fill)
 
     else:
-        draw_3D_matching_complex(M_G,fill, iterations = iterations)
+        draw_3D_matching_complex(M_G,fill, iterations = iterations, make_video=make_video, vid_path=vid_path)
 
 print("done!")

@@ -16,6 +16,9 @@ import itertools as itl
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 import copy
+import os
+import shutil
+import matplotlib.animation as manimation
 
 def draw_graph(G, edge_labels=None):
     """
@@ -101,18 +104,26 @@ def draw_2D_matching_complex(M_G, fill=[]):
 
     plt.show()
 
-def draw_3D_matching_complex(M_G,fill=[], iterations=100):
+def draw_3D_matching_complex(M_G,fill=[], k=None, iterations=100, make_video=False, vid_elevation=10, vid_path=None):
     """
     Draws the given matching complex in 3 dimensions, filling in any faces (e.g. triangles/tetrahedron). Uses the spring-force
     algorithm to determine the location of nodes.
 
     @params
-        M_G : matching complex; iterable of 2-tuples specifying each edge in the complex
-        fill : tuples of vertices specifying a face to be colored. For example, (1,2,3) specifies coloring in the face made by
-               vertices 1,2,3 (and the corresponding edges between them).
+           M_G : matching complex; iterable of 2-tuples specifying each edge in the complex
+          fill : tuples of vertices specifying a face to be colored. For example, (1,2,3) specifies coloring in the face made by
+                 vertices 1,2,3 (and the corresponding edges between them).
+             k : optimal distance for nodes to be in graph. Allows you to adjust how far apart nodes are in drawing
+    iterations : number of iterations to run stochastic spring-force algorithm for
+    make_video : makes a video spinning simplicial complex around.
+    vid_elevation : elevation of viewpoint when making video.
+    vid_path : filepath to save video at
+
+    @returns
+        fig : returns matplotlib figure.
     """
 
-    pos = nx.spring_layout(M_G, dim=3, iterations=iterations, weight="weight")
+    pos = nx.spring_layout(M_G, dim=3, k=k, iterations=iterations, weight="weight")
 
     fig = plt.figure()
     ax = fig.add_subplot('111', projection='3d')
@@ -146,8 +157,29 @@ def draw_3D_matching_complex(M_G,fill=[], iterations=100):
     for e in M_G.edges():
         ax.plot(xs=[pos[e[0]][0], pos[e[1]][0]], ys=[pos[e[0]][1], pos[e[1]][1]], zs=[pos[e[0]][2], pos[e[1]][2]], c='k') 
 
+
+    #### make a video out of stuff
+    if make_video:
+        writer = manimation.writers['ffmpeg'](fps=15)
+        fig = plt.gcf()
+        dpi = 200
+        with writer.saving(fig, vid_path, dpi):
+
+            # do stuff
+            for ii in range(0,360,1):
+                ax.view_init(elev=vid_elevation, azim=ii)
+                writer.grab_frame()
+            #### #############
+
     plt.show()
-    #mpld3.show()
+
+    return fig
+
+        
+
+
+        
+
 
     
 def make_matching_complex(maximal_matchings, tetra_weight=1, tri_weight=1, other_weight=1):
@@ -188,23 +220,26 @@ def make_matching_complex(maximal_matchings, tetra_weight=1, tri_weight=1, other
 
     return M_G, fill
 
-
-def graph_from_complex(edges, vertices, faces=[], simple_graph=False):
+# TODO: fix code for non simple graphs.
+def graph_from_complex(faces, simple_graph=False):
     """
     Given a matching complex, find a graph that generates it (this graph may not be unique).
 
     @params
-         edges : edge list for the given matching complex (e.g. edges of the one skeleton of M_G)
-         vertices: vertex labels for M_G. This could just be a list of numbers [1,2,..., n]
-         faces : higher dimensional faces of matching complex. Specified as a list of n-tuples of vertices.
-                 for example, the 3-tuple (1,2,3) would specify a face between vertices 1,2,3 of M_G (e.g. a filled
+         faces : edges and higher dimensional faces of matching complex. Specified as a list of n-tuples of vertices.
+                 for example, the 2-tuple (1,2) would specify an edge between vertices 1 and 2,
+                 the 3-tuple (1,2,3) would specify a face between vertices 1,2,3 of M_G (e.g. a filled
                  in triangle). Similarly, a 4-tuple (1,2,3,4) would form a filled in tetrahedron between vertices 1,2,3,4
+
+        simple_graph : Look for a simple graph (True/False) that generates this matching complex
 
 
     @returns
-        G : a networkx Graph object for a graph that generates this matching complex (if possible)
+                  G : a networkx Graph object for a graph that generates this matching complex (if possible)
+        edge_labels : dictionary mapping edges (v1, v2)  to edge labels (e.g. edge number)
     """
-    
+    vertices = list(set([x for face in faces for x in face]))
+
     # create adjacency lists for the edges of G
     # stores which edges in G have to be adjacent based on the structure of M_G
     adj_list = {v:set(vertices.copy()) for v in vertices}
@@ -212,17 +247,6 @@ def graph_from_complex(edges, vertices, faces=[], simple_graph=False):
     
     # NOTE: Edges in G cannot be adjacent if their corresponding vertices are adjacent in M_G
     # or share a higher dimensional face.
-    for e in edges:
-        try:
-            adj_list[e[0]].remove(e[1])
-        except:
-            pass
-
-        try:
-            adj_list[e[1]].remove(e[0])
-        except:
-            pass
-
     for f in faces:
         for v1, v2 in itl.combinations(f,2):
             try:
@@ -231,7 +255,7 @@ def graph_from_complex(edges, vertices, faces=[], simple_graph=False):
                 pass
 
             try:
-                adj_list[v1].remove(v2)
+                adj_list[v2].remove(v1)
             except:
                 pass
 
@@ -256,11 +280,23 @@ def graph_from_complex(edges, vertices, faces=[], simple_graph=False):
             else:
                 edge_map[e] = set([v])
 
-    edge_labels = {tuple(edge_map[e]):e for e in edge_map}
-    edge_list = edge_labels.keys()
-    
+    if simple_graph:
+        edge_labels = {tuple(edge_map[e]):e for e in edge_map}
+        edge_list = edge_labels.keys()
+    else:
+        edge_list = [tuple(edge_map[e]) for e in edge_map]
+        edge_labels = {}
+        for e in edge_map:
+            key = tuple(edge_map[e])
+            if key in edge_labels:
+                edge_labels[key] += [e]
+            else:
+                edge_labels[key] = [e]
+
     G = nx.Graph()
     G.add_edges_from(edge_list)
+
+    print("edgelist: ", edge_list)
 
     return G, edge_labels
 
@@ -284,20 +320,26 @@ def helper(index, vertex_adj_list, edge_adj_list, edges, first_vertex, simple_gr
 
     next_edge = edges[index]
 
+    # What edges (that have already been placed) this current edge needs to be adjacent to
+    needed_edges = set(filter(lambda x: edges.index(x) < index, edge_adj_list[next_edge]))
+    if first_vertex is not None:
+        needed_edges = needed_edges - vertex_adj_list[first_vertex]
+
     for v in vertex_adj_list:
 
         # if this edge is adjacent to all the edges already adjacent to the given vertex,
         # we can add it to the given vertex and recurse.
-        if vertex_adj_list[v].issubset(edge_adj_list[next_edge]):
+        if (first_vertex is None and vertex_adj_list[v] <= needed_edges) or (needed_edges == vertex_adj_list[v]): #TODO: Change this to be == needed edges if first vertex already chosen?
 
             # TODO: verify this simple graph check works properly.
+            # Don't want to create a double edge if this is a simple graph
             if first_vertex is None or not simple_graph or len(vertex_adj_list[v].intersection(vertex_adj_list[first_vertex])) == 0:
 
                 new_adj_list = copy.deepcopy(vertex_adj_list)
                 new_adj_list[v].add(next_edge)
 
 
-                if not first_vertex is None:
+                if first_vertex is not None:
                     # just placed both vertices for current edge, so we can move on to the next edge
                     graph = helper(index + 1, new_adj_list, edge_adj_list, edges, first_vertex=None, simple_graph=simple_graph)
                 else:
@@ -311,18 +353,19 @@ def helper(index, vertex_adj_list, edge_adj_list, edges, first_vertex, simple_gr
     # This tries to handle the case where a given edge is incompatible with the current graph being built
     # Namely, if I can find edges that are adjacent to the edge I am currently trying to place, and this
     # edge is n. Note we have already placed edges with index less than the current edge
-    needed_edges = set(filter(lambda x:  edges.index(x) < index, edge_adj_list[next_edge])) # filter to consider only edges that have already been placed
+    #needed_edges = set(filter(lambda x:  edges.index(x) < index, edge_adj_list[next_edge])) # filter to consider only edges that have already been placed
 
     # Since there are edges the current edge is adjacent to that have already been placed,
     # I should have been able to find a compatible vertex to attach this edge to. Thus, the current
     # graph does not work so recurse upwards.
-    if first_vertex is None and len(needed_edges) > 0: return None
 
+    # OR
 
     # Since there are edges the current edge is adjacent to that have already been placed AND that it is not already adjacent to,
     # I should have been able to find a compatible vertex to attach this edge to. Thus, the current
     # graph does not work so recurse upwards.
-    elif first_vertex is not None and len(needed_edges - vertex_adj_list[first_vertex]) > 0: return None
+
+    if len(needed_edges) > 0: return None
 
 
     # else I have not found any vertices that I could attach this edge to, but none of the currently placed edges
@@ -351,6 +394,7 @@ if __name__ == "__main__":
     parser.add_argument('-g', '--find_graph', action='store_true', default=False, help="find the a graph that generates given matching complex")
     parser.add_argument('-m', '--find_matching', action='store_true', default=False, help="find the matching complex of a given graph")
     parser.add_argument('--iterations', type=int, default=100, help="Number of iterations to run spring-force algorithm for")
+    parser.add_argument('--opt_dist', type=float, default=None, help="Optimal distance between nodes in drawn graph. Can help spread out graphs.")
     parser.add_argument('--draw_2D', action='store_true', default=False, help="Draw matching complex in 2D rather than 3D")
     parser.add_argument('-w', '--weights', nargs=3, default=(1,1,1), help="Strength of edges for tetrahedron, triangle, and normal edges in matching complex.")
 
@@ -373,17 +417,17 @@ if __name__ == "__main__":
         #edge_list=[(1,2), (3,4), (5,6), (7,8)] # 4 disjoint edges
         #edge_list=[(1,2), (3,4), (5,6), (7,8)] # 4 disjoint edges
         
-        '''
+        
         # K_k,n
+        '''
         k=4
         n=3
         edge_list =[]
         for i in range(k):
             for j in range(k, k+n):
                 edge_list.append((i,j))
-        
-        print(edge_list)
         '''
+
 
         #K_n
         '''
@@ -419,7 +463,7 @@ if __name__ == "__main__":
                 draw_2D_matching_complex(M_G,fill)
 
             else:
-                draw_3D_matching_complex(M_G,fill, iterations=args.iterations)
+                draw_3D_matching_complex(M_G,fill, k=args.opt_dist, iterations=args.iterations)
 
         print("done!")
 
